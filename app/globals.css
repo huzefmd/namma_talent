@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #F5F5FA;
+  color: #15112B;
+}
+
+/* visible keyboard focus everywhere */
+:focus-visible {
+  outline: 2px solid #5B21B6;
+  outline-offset: 2px;
+}
+
+/* thin scrollbar for horizontally-scrolling chip rows (category rail, filters) */
+.scroll-thin::-webkit-scrollbar {
+  height: 6px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: rgba(21, 17, 43, 0.15);
+  border-radius: 9999px;
+}
+.scroll-thin {
+  scrollbar-width: thin;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,4 @@
+- [x] Inspect existing category/filter implementation (done)
+- [x] Update `lib/constants.ts` to expand `CATEGORIES` with all requested services
+- [ ] Verify TypeScript build (run `npm run build`)
+- [ ] Smoke test landing page + buyer dashboard category filtering
