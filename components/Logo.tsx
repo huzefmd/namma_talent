@@ -5,7 +5,7 @@ export default function Logo({ dark = false }: { dark?: boolean }) {
   return (
     <Link href="/" className="inline-flex items-center gap-3 group ">
       <Image
-        src="/Logo.png"
+        src="/logo.png"
         alt="Namma Talent Logo"
         width={55}
         height={55}
