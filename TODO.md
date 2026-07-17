@@ -1,4 +1,4 @@
-- [x] Inspect existing category/filter implementation (done)
-- [x] Update `lib/constants.ts` to expand `CATEGORIES` with all requested services
-- [ ] Verify TypeScript build (run `npm run build`)
-- [ ] Smoke test landing page + buyer dashboard category filtering
+- [x] Update landing page search bar to show live talent suggestions while typing.
+- [x] Add API route `/api/talents/search` to return matching talents from Supabase.
+- [x] Wire up client-side debounce + dropdown + click-to-navigate behavior.
+- [ ] Run Next.js dev server and manually test search suggestions.
