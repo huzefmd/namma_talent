@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Icon from "@/components/Icon";
-import { CATEGORIES } from "@/lib/constants";
+import { CATEGORIES, getCategoryEmoji } from "@/lib/constants";
 
 type TalentSuggestion = {
   id: string;
@@ -17,6 +17,7 @@ type TalentSuggestion = {
 
 export default function LandingPage() {
   const router = useRouter();
+
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [open, setOpen] = useState(false);
@@ -24,284 +25,560 @@ export default function LandingPage() {
   const [results, setResults] = useState<TalentSuggestion[]>([]);
   const [activeIndex, setActiveIndex] = useState(-1);
 
-  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [categoryIndex, setCategoryIndex] = useState(0);
+
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  const searchCategories = [
+    "photographer",
+    "math tutor",
+    "wedding designer",
+    "DJ",
+    "video editor",
+    "fitness trainer",
+    "makeup artist",
+    "graphic designer",
+  ];
+
+  /* ROTATING SEARCH PLACEHOLDER */
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQ(q.trim()), 250);
-    return () => clearTimeout(t);
+    const interval = setInterval(() => {
+      setCategoryIndex((currentIndex) => {
+        return (currentIndex + 1) % searchCategories.length;
+      });
+    }, 2200);
+
+    return () => clearInterval(interval);
+  }, [searchCategories.length]);
+
+  /* DEBOUNCE SEARCH */
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQ(q.trim());
+    }, 250);
+
+    return () => clearTimeout(timer);
   }, [q]);
+
+  /* SEARCH API */
 
   useEffect(() => {
     const controller = new AbortController();
 
-    async function run() {
-      const query = debouncedQ;
-      if (query.length < 1) {
+    async function searchTalents() {
+      if (!debouncedQ) {
         setResults([]);
-        setActiveIndex(-1);
         setLoading(false);
         return;
       }
 
       try {
         setLoading(true);
-        const res = await fetch(`/api/talents/search?q=${encodeURIComponent(query)}`, {
-          signal: controller.signal,
-        });
-        const json = (await res.json()) as { results: TalentSuggestion[] };
-        setResults(json.results ?? []);
-        setActiveIndex((prev) => (prev >= 0 ? Math.min(prev, (json.results ?? []).length - 1) : -1));
-      } catch {
-        // ignore aborts/network errors
-        setResults([]);
-        setActiveIndex(-1);
+
+        const response = await fetch(
+          `/api/talents/search?q=${encodeURIComponent(debouncedQ)}`,
+          {
+            signal: controller.signal,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Search failed");
+        }
+
+        const data = await response.json();
+
+        setResults(data.results ?? []);
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          setResults([]);
+        }
       } finally {
         setLoading(false);
       }
     }
 
-    run();
+    searchTalents();
+
     return () => controller.abort();
   }, [debouncedQ]);
 
+  /* CLOSE SEARCH DROPDOWN WHEN CLICKING OUTSIDE */
+
   useEffect(() => {
-    function onDocMouseDown(e: MouseEvent) {
-      const el = rootRef.current;
-      if (!el) return;
-      if (!el.contains(e.target as Node)) setOpen(false);
+    function handleOutsideClick(event: MouseEvent) {
+      if (
+        rootRef.current &&
+        !rootRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
     }
 
-    document.addEventListener("mousedown", onDocMouseDown);
-    return () => document.removeEventListener("mousedown", onDocMouseDown);
+    document.addEventListener("mousedown", handleOutsideClick);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
   }, []);
 
-  const suggestionsVisible = open && q.trim().length >= 1;
+  const suggestionsVisible = open && q.trim().length > 0;
 
-  const submitTargetHref = useMemo(() => {
-    // Keep existing behavior (submit to /buyer/dashboard). If a user clicked a suggestion,
-    // navigation happens immediately.
-    return "/buyer/dashboard";
-  }, []);
+  function selectTalent(talent: TalentSuggestion) {
+    setOpen(false);
+    setQ(talent.name);
+    router.push(`/talent/${talent.id}`);
+  }
 
   return (
-    <main className="min-h-screen bg-mist">
+    <main className="min-h-screen bg-mist text-ink">
       <Header />
 
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-brand-gradient">
-        <div
-          className="absolute inset-0 opacity-[0.15]"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 20% 20%, white 0, transparent 40%), radial-gradient(circle at 85% 60%, white 0, transparent 35%)",
-          }}
-          aria-hidden="true"
-        />
-        <div className="relative mx-auto max-w-6xl px-5 pt-14 pb-16 sm:pt-20 sm:pb-24">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold tracking-wide text-white ring-1 ring-white/25">
-            <Icon name="bolt" size={14} className="text-white" />
-            Verified pros, replies in minutes
-          </span>
-          <h1 className="mt-5 max-w-xl font-display text-4xl font-extrabold leading-[1.05] text-white sm:text-5xl">
-            Book trusted local talent, on demand.
-          </h1>
-          <p className="mt-4 max-w-lg text-base leading-relaxed text-white/85">
-            Photographers, designers, tutors, musicians and freelancers near
-            you — real profiles, real portfolios, zero bidding wars.
-          </p>
+      {/* HERO */}
 
-          {/* Search bar — Zepto/Urban Company style command bar */}
-          <form
-            action={submitTargetHref}
-            className="relative mt-8 flex max-w-xl flex-col gap-2 rounded-2xl bg-white p-2 shadow-pop sm:flex-row sm:items-center"
-            onSubmit={() => {
-              setOpen(false);
-            }}
-          >
-            <div ref={rootRef} className="relative flex flex-1 items-center gap-2 px-3 py-2">
-              <Icon name="search" size={18} className="text-ink/40" />
-              <input
-                name="q"
-                value={q}
-                onChange={(e) => {
-                  setQ(e.target.value);
-                  setOpen(true);
-                  setActiveIndex(-1);
-                }}
-                onFocus={() => setOpen(true)}
-                placeholder="Search photographers, tutors, DJs…"
-                className="w-full bg-transparent text-sm text-ink placeholder:text-ink/40 focus:outline-none"
-                autoComplete="off"
-                role="combobox"
-                aria-expanded={suggestionsVisible}
-                aria-controls="talent-suggestions"
-                aria-autocomplete="list"
-                onKeyDown={(e) => {
-                  if (!suggestionsVisible) return;
+      <section className="border-b border-black/[0.06] bg-white">
+        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-5 sm:py-20 lg:py-24">
+          <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-20">
 
-                  if (e.key === "ArrowDown") {
-                    e.preventDefault();
-                    setActiveIndex((i) => Math.min(i + 1, results.length - 1));
-                  } else if (e.key === "ArrowUp") {
-                    e.preventDefault();
-                    setActiveIndex((i) => Math.max(i - 1, 0));
-                  } else if (e.key === "Enter") {
-                    if (activeIndex >= 0 && results[activeIndex]) {
-                      e.preventDefault();
-                      const t = results[activeIndex];
-                      setOpen(false);
-                      setQ(t.name);
-                      router.push(`/talent/${t.id}`);
-                    }
-                  } else if (e.key === "Escape") {
-                    setOpen(false);
-                  }
-                }}
-              />
+            {/* LEFT SIDE */}
 
-              {suggestionsVisible && (
-                <div
-                  id="talent-suggestions"
-                  className="absolute left-3 right-3 top-[calc(100%+8px)] z-50 overflow-hidden rounded-2xl border border-black/[0.08] bg-white shadow-pop"
-                >
-                  {loading ? (
-                    <div className="px-4 py-3 text-sm font-semibold text-ink/60">Searching…</div>
-                  ) : results.length === 0 ? (
-                    <div className="px-4 py-3 text-sm font-semibold text-ink/60">No matching talent</div>
-                  ) : (
-                    <ul className="max-h-72 overflow-auto">
-                      {results.map((t, idx) => {
-                        const isActive = idx === activeIndex;
-                        return (
-                          <li key={t.id}>
-                            <button
-                              type="button"
-                              className={
-                                "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors " +
-                                (isActive ? "bg-accent/10" : "hover:bg-black/[0.03]")
-                              }
-                              onMouseEnter={() => setActiveIndex(idx)}
-                              onClick={() => {
-                                setOpen(false);
-                                setQ(t.name);
-                                router.push(`/talent/${t.id}`);
-                              }}
-                            >
-                              <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-brand-50">
-                                {t.image ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={t.image} alt={t.name} className="h-full w-full object-cover" />
-                                ) : (
-                                  <Icon name="toolbox" size={18} className="text-brand/60" />
-                                )}
-                              </span>
-                              <span className="min-w-0 flex-1">
-                                <span className="block truncate text-sm font-bold text-ink">{t.name}</span>
-                                <span className="block truncate text-xs font-semibold text-ink/50">
-                                  {t.category} · {t.location}
-                                </span>
-                              </span>
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
+            <div>
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-brand/15 bg-brand-50 px-3 py-1.5 text-xs font-bold text-brand">
+                <span className="h-1.5 w-1.5 rounded-full bg-brand" />
+                India&apos;s local talent marketplace
+              </div>
+
+              <h1 className="max-w-2xl font-display text-[42px] font-extrabold leading-[0.98] tracking-tight text-ink sm:text-6xl sm:leading-[1.05]">
+                Find the right{" "}
+                <span className="text-brand">talent</span> for the job.
+              </h1>
+
+              <p className="mt-5 max-w-xl text-[15px] leading-7 text-ink/60 sm:text-lg sm:leading-8">
+                Discover trusted photographers, designers, tutors, musicians,
+                and skilled professionals near you.
+              </p>
+
+              <div className="mt-6 flex items-center gap-3">
+                <div className="flex -space-x-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-purple-100 text-sm">
+                    👨‍💻
+                  </div>
+
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-orange-100 text-sm">
+                    👩‍🎨
+                  </div>
+
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-blue-100 text-sm">
+                    🎸
+                  </div>
+
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-sm">
+                    +
+                  </div>
                 </div>
-              )}
+
+                <p className="text-xs font-medium text-ink/60 sm:text-sm">
+                  Connect with talented professionals near you
+                </p>
+              </div>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <Link
+                  href="/signup?role=lister"
+                  className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-bold text-white transition hover:opacity-90"
+                >
+                  I&apos;m a professional
+                  <span>→</span>
+                </Link>
+
+                <span className="text-xs text-ink/45">
+                  List your services and get discovered
+                </span>
+              </div>
             </div>
 
-            <button
-              type="submit"
-              className="rounded-xl bg-accent px-6 py-3 text-sm font-bold text-white transition-transform hover:scale-[1.02] active:scale-95 sm:shrink-0"
-            >
-              Find talent
-            </button>
-          </form>
+            {/* SEARCH CARD */}
 
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href="/signup?role=lister"
-              className="rounded-full bg-white px-5 py-2.5 text-sm font-bold text-brand shadow-card hover:bg-white/90 transition-colors"
-            >
-              I'm a pro — list my services
-            </Link>
-            <span className="inline-flex items-center text-xs font-medium text-white/70">
-              2 months free for new talent
-            </span>
+            <div ref={rootRef}>
+              <div className="rounded-3xl border border-black/[0.08] bg-white p-4 shadow-[0_15px_45px_rgba(0,0,0,0.08)]">
+
+                <div className="mb-4">
+                  <p className="text-sm font-bold text-ink">
+                    What service do you need?
+                  </p>
+
+                  <p className="mt-1 text-xs text-ink/45">
+                    Search from verified local professionals
+                  </p>
+                </div>
+
+                <form
+                  action="/buyer/dashboard"
+                  onSubmit={() => setOpen(false)}
+                >
+                  <div className="relative flex items-center gap-3 rounded-2xl border border-black/[0.08] bg-mist px-4 py-3">
+
+                    <Icon
+                      name="search"
+                      size={19}
+                      className="shrink-0 text-ink/40"
+                    />
+
+                    <input
+                      name="q"
+                      value={q}
+                      onChange={(event) => {
+                        setQ(event.target.value);
+                        setOpen(true);
+                        setActiveIndex(-1);
+                      }}
+                      onFocus={() => setOpen(true)}
+                      placeholder={`Search for "${searchCategories[categoryIndex]}"`}
+                      className="w-full bg-transparent text-sm font-medium text-ink placeholder:text-ink/80 focus:outline-none"
+                      autoComplete="off"
+                      role="combobox"
+                      aria-expanded={suggestionsVisible}
+                      aria-controls="talent-suggestions"
+                      aria-autocomplete="list"  
+                      onKeyDown={(event) => {
+                        if (!suggestionsVisible) return;
+
+                        if (event.key === "ArrowDown") {
+                          event.preventDefault();
+
+                          setActiveIndex((index) =>
+                            Math.min(index + 1, results.length - 1)
+                          );
+                        }
+
+                        if (event.key === "ArrowUp") {
+                          event.preventDefault();
+
+                          setActiveIndex((index) =>
+                            Math.max(index - 1, 0)
+                          );
+                        }
+
+                        if (event.key === "Enter") {
+                          if (
+                            activeIndex >= 0 &&
+                            results[activeIndex]
+                          ) {
+                            event.preventDefault();
+                            selectTalent(results[activeIndex]);
+                          }
+                        }
+
+                        if (event.key === "Escape") {
+                          setOpen(false);
+                        }
+                      }}
+                    />
+
+                    {suggestionsVisible && (
+                      <div
+                        id="talent-suggestions"
+                        className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-2xl border border-black/[0.08] bg-white shadow-xl"
+                      >
+                        {loading ? (
+                          <div className="px-4 py-4 text-sm text-ink/50">
+                            Searching...
+                          </div>
+                        ) : results.length === 0 ? (
+                          <div className="px-4 py-4 text-sm text-ink/50">
+                            No matching talent found
+                          </div>
+                        ) : (
+                          <ul className="p-2">
+                            {results.map((talent, index) => (
+                              <li key={talent.id}>
+                                <button
+                                  type="button"
+                                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition ${index === activeIndex
+                                      ? "bg-brand-50"
+                                      : "hover:bg-mist"
+                                    }`}
+                                  onMouseEnter={() =>
+                                    setActiveIndex(index)
+                                  }
+                                  onClick={() => selectTalent(talent)}
+                                >
+                                  <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-brand-50">
+                                    {talent.image ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={talent.image}
+                                        alt={talent.name}
+                                        className="h-full w-full object-cover"
+                                      />
+                                    ) : (
+                                      <Icon
+                                        name="toolbox"
+                                        size={17}
+                                        className="text-brand"
+                                      />
+                                    )}
+                                  </div>
+
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-bold text-ink">
+                                      {talent.name}
+                                    </p>
+
+                                    <p className="truncate text-xs text-ink/50">
+                                      {talent.category} · {talent.location}
+                                    </p>
+                                  </div>
+
+                                  <span className="text-ink/30">
+                                    →
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="mt-3 flex w-full items-center justify-center rounded-2xl bg-brand px-5 py-3.5 text-sm font-bold text-white transition hover:opacity-90 active:scale-[0.98]"
+                  >
+                    Search for talent
+                  </button>
+                </form>
+
+                <div className="mt-3 flex flex-wrap justify-center gap-x-2 gap-y-1 text-[10px] text-ink/45 sm:text-xs">
+                  <span>✓ Verified profiles</span>
+                  <span>·</span>
+                  <span>Direct contact</span>
+                  <span>·</span>
+                  <span>No bidding wars</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Category preview — icon rail like a delivery app */}
-      <section className="mx-auto max-w-6xl px-5 py-14">
-        <div className="flex items-baseline justify-between">
-          <h2 className="font-display text-2xl font-extrabold text-ink">
-            Browse by category
-          </h2>
-          <Link href="/buyer/dashboard" className="text-sm font-bold text-brand hover:underline">
-            See all →
+      {/* CATEGORIES */}
+
+      <section className="mx-auto max-w-6xl px-4 py-14 sm:px-5 sm:py-20">
+        <div className="flex items-end justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">
+              Explore talent
+            </p>
+
+            <h2 className="mt-2 font-display text-2xl font-extrabold text-ink sm:text-3xl">
+              Popular services
+            </h2>
+
+            <p className="mt-2 text-sm text-ink/50">
+              Find the right professional for your next project.
+            </p>
+          </div>
+
+          <Link
+            href="/buyer/dashboard"
+            className="hidden text-sm font-bold text-brand hover:underline sm:block"
+          >
+            View all →
           </Link>
         </div>
-        <div className="mt-6 grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
-          {CATEGORIES.slice(0, 20).map((cat) => (
+
+        <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+          {CATEGORIES.slice(0, 20).map((category) => (
             <Link
-              key={cat.slug}
-              href={`/buyer/dashboard?category=${cat.slug}`}
-              className="group flex flex-col items-center gap-2 rounded-2xl bg-white px-3 py-5 text-center shadow-card transition-all hover:-translate-y-1 hover:shadow-pop"
+              key={category.slug}
+              href={`/buyer/dashboard?category=${category.slug}`}
+              className="group flex items-center gap-3 rounded-xl border border-black/[0.07] bg-white px-3 py-4 transition-all hover:border-brand/30 hover:shadow-card sm:px-4"
             >
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand transition-colors group-hover:bg-accent/10 group-hover:text-accent">
-                <Icon name={cat.icon} size={22} />
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-xl transition-transform group-hover:scale-105">
+                {getCategoryEmoji(category.slug)}
               </span>
-              <span className="text-xs font-semibold text-ink/80">{cat.label}</span>
+
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-bold text-ink">
+                  {category.label}
+                </span>
+
+                <span className="mt-0.5 block text-xs text-ink/40">
+                  Find professionals
+                </span>
+              </span>
             </Link>
           ))}
         </div>
       </section>
 
-      {/* Trust strip — Urban-Company-style reassurance bar */}
+      {/* HOW IT WORKS */}
+
       <section className="border-y border-black/[0.06] bg-white">
-        <div className="mx-auto grid max-w-6xl gap-6 px-5 py-12 sm:grid-cols-3">
-          <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-dark">
-              <Icon name="check-circle" size={20} />
-            </span>
-            <div>
-              <h3 className="font-display text-base font-bold text-ink">Verified profiles</h3>
-              <p className="mt-1 text-sm leading-relaxed text-ink/60">
-                Every pro is tied to a real, verified account — no bots, no fake reviews.
+        <div className="mx-auto max-w-6xl px-4 py-14 sm:px-5 sm:py-20">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">
+            How it works
+          </p>
+
+          <h2 className="mt-2 font-display text-2xl font-extrabold text-ink sm:text-3xl">
+            Finding the right talent is simple
+          </h2>
+
+          <div className="mt-10 grid gap-8 md:grid-cols-3">
+            <div className="border-l-2 border-brand pl-5">
+              <p className="text-sm font-extrabold text-brand">
+                01
+              </p>
+
+              <h3 className="mt-4 font-display text-xl font-bold">
+                Search
+              </h3>
+
+              <p className="mt-3 text-sm leading-7 text-ink/55">
+                Tell us what kind of professional or service you are looking
+                for.
               </p>
             </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand">
-              <Icon name="message" size={20} />
-            </span>
-            <div>
-              <h3 className="font-display text-base font-bold text-ink">Direct contact, no fees</h3>
-              <p className="mt-1 text-sm leading-relaxed text-ink/60">
-                Message or call pros directly. Browsing and contacting is always free.
+
+            <div className="border-l-2 border-accent pl-5">
+              <p className="text-sm font-extrabold text-accent">
+                02
+              </p>
+
+              <h3 className="mt-4 font-display text-xl font-bold">
+                Explore
+              </h3>
+
+              <p className="mt-3 text-sm leading-7 text-ink/55">
+                Browse profiles, portfolios, categories, and locations.
               </p>
             </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
-              <Icon name="rocket" size={20} />
-            </span>
-            <div>
-              <h3 className="font-display text-base font-bold text-ink">Get discovered fast</h3>
-              <p className="mt-1 text-sm leading-relaxed text-ink/60">
-                Pros build a profile in minutes and start getting found by people nearby.
+
+            <div className="border-l-2 border-teal-500 pl-5">
+              <p className="text-sm font-extrabold text-teal-600">
+                03
+              </p>
+
+              <h3 className="mt-4 font-display text-xl font-bold">
+                Connect
+              </h3>
+
+              <p className="mt-3 text-sm leading-7 text-ink/55">
+                Contact the professional directly and get your project started.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      <footer className="mx-auto max-w-6xl px-5 py-10 text-xs text-ink/40">
-        © {new Date().getFullYear()} Namma Talent. All rights reserved.
+      {/* TRUST */}
+
+      <section className="mx-auto max-w-6xl px-4 py-14 sm:px-5 sm:py-20">
+        <div className="grid gap-4 md:grid-cols-3">
+
+          <div className="rounded-2xl border border-black/[0.07] bg-white p-6">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand">
+              <Icon name="check-circle" size={21} />
+            </div>
+
+            <h3 className="mt-5 font-display text-lg font-bold">
+              Trusted profiles
+            </h3>
+
+            <p className="mt-2 text-sm leading-6 text-ink/55">
+              Discover professionals connected to real accounts and genuine
+              profiles.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-black/[0.07] bg-white p-6">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent/10 text-accent">
+              <Icon name="message" size={21} />
+            </div>
+
+            <h3 className="mt-5 font-display text-lg font-bold">
+              Connect directly
+            </h3>
+
+            <p className="mt-2 text-sm leading-6 text-ink/55">
+              Find someone you like and contact them directly without
+              unnecessary bidding wars.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-black/[0.07] bg-white p-6">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-50 text-teal-600">
+              <Icon name="rocket" size={21} />
+            </div>
+
+            <h3 className="mt-5 font-display text-lg font-bold">
+              Get discovered
+            </h3>
+
+            <p className="mt-2 text-sm leading-6 text-ink/55">
+              Showcase your skills and reach people looking for your services.
+            </p>
+          </div>
+
+        </div>
+      </section>
+
+      {/* PROFESSIONAL CTA */}
+
+      <section className="mx-4 mb-12 overflow-hidden rounded-3xl bg-brand sm:mx-auto sm:mb-16 sm:max-w-6xl">
+        <div className="flex flex-col items-start justify-between gap-7 px-6 py-9 sm:flex-row sm:items-center sm:px-12 sm:py-12">
+
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/60">
+              Are you a professional?
+            </p>
+
+            <h2 className="mt-3 max-w-xl font-display text-2xl font-extrabold text-white sm:text-3xl">
+              Get discovered by people looking for your skills.
+            </h2>
+
+            <p className="mt-3 max-w-lg text-sm leading-6 text-white/70">
+              Create your profile, showcase your work, and start connecting
+              with potential customers.
+            </p>
+          </div>
+
+          <Link
+            href="/signup?role=lister"
+            className="shrink-0 rounded-xl bg-white px-5 py-3 text-sm font-bold text-brand transition hover:bg-white/90"
+          >
+            Create your profile →
+          </Link>
+
+        </div>
+      </section>
+
+      {/* FOOTER */}
+
+      <footer className="border-t border-black/[0.06] bg-white">
+        <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+
+          <div>
+            <p className="font-display text-lg font-extrabold text-ink">
+              Namma<span className="text-brand">Talent</span>
+            </p>
+
+            <p className="mt-1 text-xs text-ink/40">
+              Find local talent. Get things done.
+            </p>
+          </div>
+
+          <p className="text-xs text-ink/40">
+            © {new Date().getFullYear()} Namma Talent. All rights reserved.
+          </p>
+
+        </div>
       </footer>
+
     </main>
   );
 }
-

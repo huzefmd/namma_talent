@@ -17,12 +17,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Namma Talent — Book trusted local pros, fast",
+  title: "ನಮ್ಮ ಟ್ಯಾಲೆಂಟ್",
   description:
     "Namma Talent connects you with verified photographers, designers, tutors, musicians and freelancers near you. Browse profiles, compare, and book in minutes.",
   icons: [{
     rel: "icon",
-    url: "/favicon.ico",
+    url: "/icon.png",
   }],
 };
 
