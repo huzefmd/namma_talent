@@ -122,7 +122,6 @@ export const CATEGORIES = [
   { slug: "jee-coach", label: "JEE Coach", icon: "book" },
   { slug: "upsc-coach", label: "UPSC Coach", icon: "book" },
   { slug: "coding-teacher", label: "Coding Teacher", icon: "book" },
-  { slug: "music-teacher", label: "Music Teacher", icon: "music" },
   { slug: "dance-teacher", label: "Dance Teacher", icon: "toolbox" },
   { slug: "yoga-instructor", label: "Yoga Instructor", icon: "dumbbell" },
   { slug: "gym-trainer", label: "Gym Trainer", icon: "dumbbell" },

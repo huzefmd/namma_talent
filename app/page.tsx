@@ -33,7 +33,7 @@ export default function LandingPage() {
     "photographer",
     "math tutor",
     "wedding designer",
-    "DJ",
+    "web developer",
     "video editor",
     "fitness trainer",
     "makeup artist",
