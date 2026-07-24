@@ -559,22 +559,46 @@ export default function LandingPage() {
 
       {/* FOOTER */}
 
+      {/* FOOTER */}
+
       <footer className="border-t border-black/[0.06] bg-white">
-        <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-5">
 
-          <div>
-            <p className="font-display text-lg font-extrabold text-ink">
-              Namma<span className="text-brand">Talent</span>
-            </p>
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
 
-            <p className="mt-1 text-xs text-ink/40">
-              Find local talent. Get things done.
-            </p>
+            <div>
+              <p className="font-display text-lg font-extrabold text-ink">
+                Namma<span className="text-brand">Talent</span>
+              </p>
+
+              <p className="mt-1 text-xs text-ink/40">
+                Find local talent. Get things done.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-ink/50">
+              <Link
+                href="/terms"
+                className="transition hover:text-brand"
+              >
+                Terms & Conditions
+              </Link>
+
+              <Link
+                href="/privacy"
+                className="transition hover:text-brand"
+              >
+                Privacy Policy
+              </Link>
+            </div>
+
           </div>
 
-          <p className="text-xs text-ink/40">
-            © {new Date().getFullYear()} Namma Talent. All rights reserved.
-          </p>
+          <div className="border-t border-black/[0.06] pt-5">
+            <p className="text-center text-xs text-ink/40 sm:text-left">
+              © {new Date().getFullYear()} Namma Talent. All rights reserved.
+            </p>
+          </div>
 
         </div>
       </footer>
