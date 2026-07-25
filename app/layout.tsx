@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Sora, Inter } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const sora = Sora({
@@ -33,7 +34,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${sora.variable} ${inter.variable}`}>
-      <body className="font-body antialiased bg-mist">{children}</body>
+      <body className="font-body antialiased bg-mist">
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
