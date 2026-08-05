@@ -1,13 +1,28 @@
-import { notFound } from "next/navigation";
-import Header from "@/components/Header";
+import { redirect, notFound } from "next/navigation";
+import AuthHeader from "@/components/AuthHeader";
 import Icon from "@/components/Icon";
 import ContactButton from "@/components/ContactButton";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { CATEGORIES, canBeContacted } from "@/lib/constants";
 import type { Talent } from "@/lib/types";
 
-export default async function TalentProfilePage({ params }: { params: { id: string } }) {
+export default async function TalentProfilePage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams?: { next?: string };
+}) {
   const supabase = createClient();
+
+  // Server-side auth check. If the viewer isn't logged in, send them to login
+  // BEFORE we ever touch the talent row that contains contact_phone — this keeps
+  // the phone number out of the rendered HTML for anonymous visitors.
+  const { data: auth } = await supabase.auth.getUser();
+  const next = searchParams?.next ?? `/talent/${params.id}`;
+  if (!auth.user) {
+    redirect(`/login?next=${encodeURIComponent(next)}`);
+  }
 
   const { data: talent } = await supabase
     .from("talents")
@@ -32,9 +47,14 @@ export default async function TalentProfilePage({ params }: { params: { id: stri
   const category = CATEGORIES.find((c) => c.slug === t.category);
   const active = canBeContacted(t.subscription_status, t.trial_end_date);
 
+  // Only ship the phone to the client when subscription is active/trial AND the
+  // viewer is authenticated. The server-side redirect above already filtered
+  // anonymous visitors — this is the second layer.
+  const revealPhone = active && Boolean(auth.user);
+
   return (
     <main className="min-h-screen bg-mist">
-      <Header />
+      <AuthHeader />
       <div className="mx-auto max-w-4xl px-5 py-8">
         {!active && (
           <div className="mb-6 rounded-2xl bg-accent/10 px-4 py-3 text-sm font-medium text-accent-dark">
@@ -68,8 +88,12 @@ export default async function TalentProfilePage({ params }: { params: { id: stri
               </p>
 
               <div className="mt-6">
-                {active ? (
-                  <ContactButton talentId={t.id} contactPhone={t.contact_phone} />
+                {revealPhone ? (
+                  <ContactButton
+                    talentId={t.id}
+                    contactPhone={t.contact_phone}
+                    alreadyLoggedContact={false}
+                  />
                 ) : (
                   <span className="inline-block rounded-full bg-ink/10 px-6 py-3 text-sm font-semibold text-ink/40">
                     Contact unavailable
